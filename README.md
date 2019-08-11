@@ -1,4 +1,4 @@
-# bamazon
+# Bamazon
 An Amazon-like storefront using MySQL and Node. The app will take in orders from customers and deplete stock from the store's inventory. 
 
 **Click the url to see how the application runs:**
