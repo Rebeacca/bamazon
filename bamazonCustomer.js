@@ -1,130 +1,114 @@
-const inquirer = require("inquirer");
 var mysql = require("mysql");
+var inquirer = require("inquirer");
 
+// Connects to the database.
 var connection = mysql.createConnection({
-  host: "localhost",
+    host: "localhost",
+    port: 3306,
 
-  // Your port; if not 3306
-  port: 3306,
-
-  // Your username
-  user: "root",
-
-  // Your password
-  password: "finGerginger215$",
-  database: "bamazon_DB"
+    // Root is default username.
+    user: "root",
+    // Password is empty string.
+    password: "finGerginger215$",
+    database: "bamazon_DB"
 });
 
-function bamazon() {
-  inquirer
-    .prompt({
-      name: "action",
-      type: "list",
-      message: "Items For Sale",
-      choices: ["Post", "Bid", "Exit"]
+
+function store(){
+    //prints the items for sale and their details
+    connection.query('SELECT * FROM products', function(err, res){
+      if(err) throw err;
+    
+      console.log('Bamazon')
+    
+      for(var i = 0; i<res.length;i++){
+        console.log("ID: " + res[i].id + " | " + "Product: " + res[i].product_name + " | " + "Department: " + res[i].department_name + " | " + "Price: " + res[i].price + " | " + "QTY: " + res[i].stock);
+        console.log('----------------------------------------------------------------------------------------')
+      }
+    
+      console.log(' ');
+      inquirer.prompt([
+        {
+          type: "input",
+          name: "id",
+          message: "Using the ID number, what would you like?",
+          validate: function(value){
+            if(isNaN(value) == false && parseInt(value) <= res.length && parseInt(value) > 0){
+              return true;
+            } else{
+              return false;
+            }
+          }
+        },
+        {
+          type: "input",
+          name: "qty",
+          message: "How many do you want?",
+          validate: function(value){
+            if(isNaN(value)){
+              return false;
+            } else{
+              return true;
+            }
+          }
+        }
+        ]).then(function(ans){
+          var purchasing = (ans.id)-1;
+          var totalquantity = parseInt(ans.qty);
+          var billedTotal = parseFloat(((res[purchasing].price)*totalquantity).toFixed(2));
+    
+          //check if quantity is sufficient
+          if(res[purchasing].stock >= totalquantity){
+            //after purchase, updates quantity in Products
+            connection.query("UPDATE products SET ? WHERE ?", [
+            {stock: (res[purchasing].stock - totalquantity)},
+            {id: ans.id}
+            ], function(err, result){
+                if(err) throw err;
+                console.log("Your total is $" + billedTotal.toFixed(2) + " ");
+            });
+    
+            connection.query("SELECT * FROM department_name", function(err, deptRes){
+              if(err) throw err;
+            //   var index;
+              for(var i = 0; i < deptRes.length; i++){
+                if(deptRes[i].department_name === res[purchasing].department_name){
+                    index = i;
+                }
+              }
+              
+              //updates totalSales in departments table
+              connection.query("UPDATE department_name SET ? WHERE ?", [
+              {department_name: res[purchasing].department_name}
+              ], function(err, deptRes){
+                  if(err) throw err;
+                  console.log("Updated Dept Sales.");
+              });
+            });
+    
+          } else{
+            console.log("Sorry, insufficient quantity!");
+          }
+    
+          reprompt();
+        })
     })
-    .then(ans => {
-      console.log(ans);
-      switch (ans.action) {
-        case "Post":
-          inquirer
-            .prompt([
-              {
-                name: "item",
-                type: "input",
-                message: "What item do you want to post?"
-              },
-              {
-                name: "initial_bid",
-                type: "input",
-                message: "What is the starting bid for your item?"
-              }
-            ])
-            .then(ans => {
-              postItem(ans.item, ans.initial_bid * 1);
-            });
-          break;
-        case "Bid":
-          inquirer
-            .prompt([
-              {
-                name: "item",
-                type: "input",
-                message: "What item do you want to bid?"
-              },
-              {
-                name: "bid",
-                type: "input",
-                message: "How much do you want to bid?"
-              }
-            ])
-            .then(ans => {
-              console.log(ans.item);
-              bidItem(ans.item, ans.bid * 1);
-            });
-          break;
-        case "Exit":
-          console.log("Good Bye");
-          connection.end();
-          break;
-      }
-    });
-}
-
-const postItem = (item, initial_bid) => {
-  // need item's name and min bid amount
-  let query = connection.query(
-    "INSERT INTO items SET ? ",
-    {
-      item,
-      initial_bid,
-      highest_bid: initial_bid
-    },
-    function(err, res) {
-      if (err) throw err;
-      console.log(res.affectedRows + "Item inserted! \n");
     }
-  );
-  bamazon();
-};
-
-const bidItem = (item, bidAmount) => {
-  console.log(item);
-  let query = connection.query(
-    "SELECT * FROM items WHERE item= ? ",
-    [item],
-    function(err, res) {
-      if (err) throw err;
-
-      console.log(res);
-      if (bidAmount > res[0].highest_bid) {
-        updateHighestBid(item, bidAmount);
-        console.log("Your bid is the highest one!");
-      } else {
-        console.log("Bid again!");
-        bamazon();
-      }
+    
+    //asks if they would like to purchase another item
+    function reprompt(){
+      inquirer.prompt([{
+        type: "confirm",
+        name: "reply",
+        message: "Would you like to purchase another item?"
+      }]).then(function(ans){
+        if(ans.reply){
+          store();
+        } else{
+          console.log("See you soon!");
+        }
+      });
     }
-  );
-};
-
-const updateHighestBid = (item, bidAmount) => {
-  let query = connection.query(
-    "UPDATE items SET ? WHERE ?",
-    [
-      {
-        highest_bid: bidAmount
-      },
-      {
-        item
-      }
-    ],
-    function(err, res) {
-      if (err) throw err;
-      console.log(res.affectedRows + "Item inserted! \n");
-    }
-  );
-  bamazon();
-};
-
-bamazon();
+    
+    store();
+    
