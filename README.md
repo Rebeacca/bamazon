@@ -7,10 +7,10 @@ https://youtu.be/kkfV7EWn1a8
 
 **NPM Packages Needed:**
 
-json
-inquirer
-mysql
-node
+- json
+- inquirer
+- mysql
+- node
 
 **Main Purpose:**
 
